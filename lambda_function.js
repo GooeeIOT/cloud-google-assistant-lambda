@@ -395,13 +395,13 @@ async function handle_sync(body){
  * @param {object} callback : Contains AWS lambda runtime information.
  */
 exports.fulfillment = async function(event, context) {
-    body = event['body-json']
-    headers = event.params.header
-    token = headers.Authorization.split(' ')[1]
+    let body = event['body-json']
+    let headers = event.params.header
+    let token = headers.Authorization.split(' ')[1]
 
     await handle_auth(token)
     try{
-        var intent = body.inputs[0].intent
+        let intent = body.inputs[0].intent
         var response = {}
         switch(intent){
             case 'action.devices.SYNC':
@@ -426,6 +426,7 @@ exports.fulfillment = async function(event, context) {
         return response
     }
     catch(error){
+        console.log(error)
         return error
     }
 }
