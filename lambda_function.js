@@ -390,9 +390,8 @@ async function handle_sync(body, token) {
 fulfillment = async function(event, context) {
     console.log(event)
     try {
-        let body = event['body-json']
-        let headers = event.params.header
-        let token = headers.Authorization.split(' ')[1]  
+        let body = JSON.parse(event.body)
+        let token = event.headers.Authorization.split(' ')[1]  
         let intent = body.inputs[0].intent
         let response = {}
         switch(intent){
