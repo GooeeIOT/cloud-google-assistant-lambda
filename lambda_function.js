@@ -17,21 +17,15 @@
 const {smarthome} = require('actions-on-google')
 const rp = require('request-promise')
 
-// Create an app instance
-const app = smarthome({
-    debug:true
-})
-
 //Globals
 var API_URL = process.env.API_URL
-var getRequest = postRequest = rp
-var queried_devices = {}
-var successful_devices = []
-var failed_devices = []
-var payload_commands = []
+var queriedDevices = []
+var successfulDevices = []
+var failedDevices = []
+var payloadCommands = []
 
 // Allow Devices and Spaces(Switches) to be powered on/off, dim/brighten, and set to x%
-var SPACE_TEMPLATE = {
+const SPACE_TEMPLATE = {
 	"id": "__REPLACE__",
 	"type": "action.devices.types.SWITCH",
 	"traits": [
@@ -46,7 +40,7 @@ var SPACE_TEMPLATE = {
 		"type": "space" 
 	}
 }
-var DEVICE_TEMPLATE = {
+const DEVICE_TEMPLATE = {
 	"id": "__REPLACE__",
 	"type": "action.devices.types.LIGHT",
 	"traits": [
@@ -73,36 +67,35 @@ var DEVICE_TEMPLATE = {
  * Create default GET and POST requests to Gooee Cloud API
  * @param {string} token : Bearer token
  */
-function handle_auth(token) {
-    getRequest = rp.defaults({
-        baseUrl: 'https://' + API_URL,
-        method: 'GET',
+function get_request(endpoint, token) {
+    let options = {
+        uri: 'https://' + API_URL + endpoint,
         json: true,
-        auth: {
-            bearer: token
-        }
-    })
-    postRequest = rp.defaults({
-        baseUrl: 'https://' + API_URL + '/actions',
-        method: 'POST',
+        auth: { bearer: token }
+    }
+    return rp.get(options)
+}
+function post_request(endpoint, req, token) {
+    let options = {
+        uri: 'https://' + API_URL + endpoint,
         json: true,
-        auth: {
-            bearer: token
-        }
-    })
+        auth: { bearer: token },
+        body: req
+    }
+    return rp.post(options)
 }
 
 /** Concatenate device objects into single object */
-function combine_devices(device){
-    queried_devices.concat(device)
+function combine_devices(device) {
+    queriedDevices.push(device)
 }
 
 /** Combine device objects based on success or fail */
-function combine_command_data(success, fail){
+function combine_command_data(success, fail) {
     if(success){
-        successful_devices.push(success)
+        successfulDevices.push(success)
     } else {
-        failed_devices.push(fail)
+        failedDevices.push(fail)
     }
 }
 
@@ -110,54 +103,54 @@ function combine_command_data(success, fail){
  * Create command payload for each action received.
  * @param {string} action: "on", "brightness" corresponding to device traits values.
  * @param {Boolean||number} value: on -> Boolean, brightness -> number.
- * @param {Array} successful_devices: list of devices with successful action.
- * @param {Array} failed_devices: list of devices with failed action.
+ * @param {Array} successfulDevices: list of devices with successful action.
+ * @param {Array} failedDevices: list of devices with failed action.
  */
-function combine_commands(action, value, successful_devices, failed_devices){
-    payload_commands = []
+function combine_commands(action, value, successfulDevices, failedDevices) {
+    payloadCommands = []
     switch(action){
         case 'on':
-            if(successful_devices){
+            if (successfulDevices) {
                 var cmd = {
-                    'ids': successful_devices,
+                    'ids': successfulDevices,
                     'status': 'SUCCESS',
                     'states': {
                         'on': value,
                         'online': true
                     }
                 }
-                payload_commands.push(cmd)
+                payloadCommands.push(cmd)
             }
-            if(failed_devices){
+            if (!Array.isArray(failedDevices) || failedDevices.length) {
                 var cmd = {
-                    'ids': failed_devices,
+                    'ids': failedDevices,
                     'status': 'ERROR'
                 }
-                payload_commands.push(cmd)
+                payloadCommands.push(cmd)
             }
             break
         case 'brightness':
-            if(successful_devices){
+            if (successfulDevices) {
                 var cmd = {
-                    'ids': [new Set(successful_devices)],
+                    'ids': [new Set(successfulDevices)],
                     'status': 'SUCCESS',
                     'states': {
                         'brightness': value
                     }
                 }
-                payload_commands.push(cmd)
+                payloadCommands.push(cmd)
             }
-            if(failed_devices){
+            if (failedDevices) {
                 var cmd = {
-                    'ids': [new Set(failed_devices)],
+                    'ids': [new Set(failedDevices)],
                     'status': 'ERROR',
                 }
-                payload_commands.push(cmd)
+                payloadCommands.push(cmd)
             }
             break
     }
-    successful_devices = []
-    failed_devices = []
+    successfulDevices = []
+    failedDevices = []
 }
 
 //Handlers for Fulfillment
@@ -182,18 +175,17 @@ function combine_commands(action, value, successful_devices, failed_devices){
  * }
  *}
  */
-async function handle_execute(body) {
-    var commands = body.inputs[0].payload.commands
-    for(var command of commands){
-        var devices = command.devices
-        var action = Object.keys(command.execution[0].params)[0]
-        var value = command.execution[0].params[action]
-        var req = {
+async function handle_execute(body, token) {
+    let commands = body.inputs[0].payload.commands
+    for (let command of commands) {
+        let devices = command.devices
+        let action = Object.keys(command.execution[0].params)[0]
+        let value = command.execution[0].params[action]
+        let req = {
             'type': '__REPLACE__',
-            'device': '__REPLACE__',
             'value': '__REPLACE__'
         }
-        switch(action){
+        switch(action) {
             case 'on':
                 req.type = value ? 'on':'off'
                 req.value = {'transition_time': 1}
@@ -206,31 +198,32 @@ async function handle_execute(body) {
                 }
                 break
         }
-        for (var device of devices){
-            req.device = device.id
-            if (device.customData.type === 'device'){
-                await postRequest('/', {body:req})
-                .then(async function(response){
+        for (let device of devices) {
+            if (device.customData.type === 'device') {
+                req['device'] = device.id
+                await post_request('/actions', req, token)
+                .then(async function() {
                     await combine_command_data(req.device, null)
-                }).catch(async function(error){
-                    console.log(error)
+                }).catch(async function(error) {
                     await combine_command_data(null, req.device)
                 })
+                delete req['device']
             } else {
-                await getRequest('/spaces/' + device.id)
-                .then(async function(resp){
-                    await combine_command_data(req.device, null)
-                }).catch(async function(error){
-                    await console.log(error)
-                    await combine_command_data(null, req.device)
+                req['space'] = device.id
+                await post_request('/actions', req, token)
+                .then(async function() {
+                    await combine_command_data(req.space, null)
+                }).catch(async function(error) {
+                    await combine_command_data(null, req.space)
                 })
+                delete req['space']
             }    
         } //End of For Loop
-        await combine_commands(action, value, successful_devices, failed_devices)
+        await combine_commands(action, value, successfulDevices, failedDevices)
         var resp = {
             'requestId': body.requestId,
             'payload': {
-                'commands': payload_commands
+                'commands': payloadCommands
             }
         }
         return resp
@@ -263,28 +256,28 @@ async function handle_execute(body) {
  * }
  *}
  */
-async function handle_query(body) {
-    var devices = body.inputs[0].payload.devices
-    var query_devices = []
-    for(var i=0; i < devices.length; i++){
-        query_devices.push(devices[i])
+async function handle_query(body, token) {
+    let devices = body.inputs[0].payload.devices
+    let queryDevices = []
+    for (var i=0; i < devices.length; i++) {
+        queryDevices.push(devices[i])
     }
     
-    for(var query of query_devices){
-        if (query.customData.type === 'device'){
-            await getRequest('/devices/'+query.id)
+    for (let query of queryDevices) {
+        if (query.customData.type === 'device') {
+            await get_request('/devices/'+query.id, token)
             .then( async function(resp){
-                var device = {}
-                for (var meta of resp.meta){
+                let device = {}
+                for (let meta of resp.meta) {
                     switch(meta.name) {
                         case 'onoff':
-                            var on = meta.value
+                            let on = meta.value
                             break
                         case 'is_online':
-                            var online = meta.value
+                            let online = meta.value
                             break
                         case 'dim':
-                            var brightness = meta.value
+                            let brightness = meta.value
                             break
                     }
                 }
@@ -296,11 +289,11 @@ async function handle_query(body) {
                 await combine_devices(device)
             })
         } else {
-            await getRequest('/spaces/'+query.id+'/device_states')
-            .then( async function(resp){
-                var device = {}
-                var onoff = 0
-                for(x of Object.values(resp.states)) {
+            await get_request('/spaces/'+query.id+'/device_states', token)
+            .then( async function(resp) {
+                let device = {}
+                let onoff = 0
+                for (x of Object.values(resp.states)) {
                     onoff = onoff + x.onoff
                 }
                 device[query.id] = {
@@ -314,7 +307,7 @@ async function handle_query(body) {
     var resp = {
         'requestId': body.requestId,
         'payload': {
-            'devices': queried_devices
+            'devices': Object.assign({}, ...queriedDevices)
         }
     }
     return resp
@@ -351,31 +344,31 @@ async function handle_query(body) {
  *   }
  * }
  */
-async function handle_sync(body){
-    return await getRequest('/devices/?_include=name,id,meta&type__in=wim,bulb')
-    .then( async function (resp){
-        var synced_devices = []
-        for (var i=0; i < resp.length; i++) {
-            var device_tmpl = await JSON.parse(JSON.stringify(DEVICE_TEMPLATE))
+async function handle_sync(body, token) {
+    return await get_request('/devices/?_include=name,id,meta&type__in=wim,bulb', token)
+    .then( async function (resp) {
+        let syncedDevices = []
+        for (let i=0; i < resp.length; i++) {
+            let device_tmpl = await JSON.parse(JSON.stringify(DEVICE_TEMPLATE))
             device_tmpl.id = resp[i].id
             device_tmpl.name.name = resp[i].name
             online = await resp[i].meta.find(x => {return x.name === 'is_online'})
             device_tmpl.customData.online = online.value
-            synced_devices.push(device_tmpl)
+            syncedDevices.push(device_tmpl)
         }
-        return synced_devices
+        return syncedDevices
     })
-    .then( async function (synced_devices){
-        return await getRequest('/spaces/?_include=id,name')
-        .then( async function (resp){
-            var synced_spaces = []
+    .then( async function (syncedDevices) {
+        return await get_request('/spaces/?_include=id,name', token)
+        .then( async function (resp) {
+            var syncedSpaces = []
             for (var i=0; i < resp.length; i++) {
                 var space_tmpl = await JSON.parse(JSON.stringify(SPACE_TEMPLATE))
                 space_tmpl.id = resp[i].id
                 space_tmpl.name.name = resp[i].name
-                synced_spaces.push(space_tmpl)
+                syncedSpaces.push(space_tmpl)
             }
-            var devices = synced_devices.concat(synced_spaces)
+            let devices = syncedDevices.concat(syncedSpaces)
             var resp = {
                 'requestId': body.requestId,
                 'payload': {
@@ -394,27 +387,26 @@ async function handle_sync(body){
  * @param {object} context : Contains AWS lambda runtime information.
  * @param {object} callback : Contains AWS lambda runtime information.
  */
-exports.fulfillment = async function(event, context) {
-    let body = event['body-json']
-    let headers = event.params.header
-    let token = headers.Authorization.split(' ')[1]
-
-    await handle_auth(token)
-    try{
+fulfillment = async function(event, context) {
+    console.log(event)
+    try {
+        let body = event['body-json']
+        let headers = event.params.header
+        let token = headers.Authorization.split(' ')[1]  
         let intent = body.inputs[0].intent
-        var response = {}
+        let response = {}
         switch(intent){
             case 'action.devices.SYNC':
                 console.log('SYNCING...')
-                response = await handle_sync(body)
+                response = await handle_sync(body, token)
                 break
             case 'action.devices.QUERY':
                 console.log('QUERYING...')
-                response = await handle_query(body)
+                response = await handle_query(body, token)
                 break
             case 'action.devices.EXECUTE':
                 console.log('EXECUTING...')
-                response = await handle_execute(body)
+                response = await handle_execute(body, token)
                 break
             case 'action.devices.DISCONNECT':
                 response = {}
@@ -429,4 +421,13 @@ exports.fulfillment = async function(event, context) {
         console.log(error)
         return error
     }
+}
+
+module.exports = {
+    fulfillment,
+    get_request,
+    post_request,
+    handle_execute,
+    handle_query,
+    handle_sync
 }
