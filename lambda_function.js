@@ -387,14 +387,14 @@ async function handle_sync(body, token) {
  * @param {object} context : Contains AWS lambda runtime information.
  * @param {object} callback : Contains AWS lambda runtime information.
  */
-fulfillment = async function(event, context) {
+async function fulfillment(event, context) {
     console.log(event)
     try {
         let body = event['body-json']
         let headers = event.params.header
         let token = headers.Authorization.split(' ')[1]
         let intent = body.inputs[0].intent
-        let response = {}
+        var response = {}
         switch(intent){
             case 'action.devices.SYNC':
                 console.log('SYNCING...')
