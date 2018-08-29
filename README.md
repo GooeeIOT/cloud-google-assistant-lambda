@@ -10,7 +10,7 @@ A Google Assistant integration that uses Gooee's API for lighting control.
 ### Dev Requirements
 This is meant to be ran in an AWS Lambda environment, but to run tests locally: 
 * `npm install`
-* `npm test`
+* `npm test tests`
 
 ## Usage
 Below are steps to deploy this Lambda function as a Gooee Smart Home Skill:
