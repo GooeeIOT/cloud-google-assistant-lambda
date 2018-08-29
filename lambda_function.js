@@ -16,6 +16,7 @@
 // Import the appropriate service
 const {smarthome} = require('actions-on-google')
 const rp = require('request-promise')
+var raven = require('raven')
 
 //Globals
 var API_URL = process.env.API_URL
@@ -23,6 +24,21 @@ var queriedDevices = []
 var successfulDevices = []
 var failedDevices = []
 var payloadCommands = []
+
+//Sentry Setup
+let SENTRY_ENVIRONMENT = 'TMPL_SENTRY_ENV'
+let SENTRY_RELEASE = 'TMPL_SENTRY_REL'
+let SENTRY_KEY = 'TMPL_SENTRY_KEY'
+let SENTRY_PARAMS = [SENTRY_ENVIRONMENT, SENTRY_RELEASE, SENTRY_KEY]
+if (!SENTRY_PARAMS.some(x => {
+    return x.startsWith('TMPL_')
+})) {
+    var SENTRY_CLI = raven.config(SENTRY_KEY, {
+        release: SENTRY_RELEASE,
+        environment: SENTRY_ENVIRONMENT,
+        transport: raven.transports.HTTPTransport
+    }).install()
+}
 
 // Allow Devices and Spaces(Switches) to be powered on/off, dim/brighten, and set to x%
 const SPACE_TEMPLATE = {
@@ -287,7 +303,9 @@ async function handle_query(body, token) {
                     brightness: brightness ? brightness: null
                 }
                 await combine_devices(device)
-            })
+            }), function (error) {
+                SENTRY_CLI.captureException(error)
+            }
         } else {
             await get_request('/spaces/'+query.id+'/device_states', token)
             .then( async function(resp) {
@@ -301,7 +319,9 @@ async function handle_query(body, token) {
                     online: true
                 }
                 await combine_devices(_device)
-            })
+            }), function(error) {
+                SENTRY_CLI.captureException(error)
+            }
         }
     } //End For Loop
     var resp = {
@@ -376,7 +396,9 @@ async function handle_sync(body, token) {
                 }
             }
             return resp
-        })
+        }), function(error) {
+            SENTRY_CLI.captureException(error)
+        }
     })
 }
 
@@ -418,7 +440,9 @@ async function fulfillment(event, context) {
         return response
     }
     catch(error){
-        console.log(error)
+        if (SENTRY_CLI) {
+            SENTRY_CLI.captureException(error)
+        }
         return error
     }
 }
