@@ -287,13 +287,13 @@ async function handle_query(body, token) {
                 for (let meta of resp.meta) {
                     switch(meta.name) {
                         case 'onoff':
-                            let on = meta.value
+                            var on = meta.value
                             break
                         case 'is_online':
-                            let online = meta.value
+                            var online = meta.value
                             break
                         case 'dim':
-                            let brightness = meta.value
+                            var brightness = meta.value
                             break
                     }
                 }
@@ -303,9 +303,10 @@ async function handle_query(body, token) {
                     brightness: brightness ? brightness: null
                 }
                 await combine_devices(device)
-            }), function (error) {
+            })
+            .catch( (error) => {
                 SENTRY_CLI.captureException(error)
-            }
+            })
         } else {
             await get_request('/spaces/'+query.id+'/device_states', token)
             .then( async function(resp) {
@@ -318,10 +319,11 @@ async function handle_query(body, token) {
                     on: Boolean(onoff),
                     online: true
                 }
-                await combine_devices(_device)
-            }), function(error) {
+                await combine_devices(device)
+            })
+            .catch( (error) => {
                 SENTRY_CLI.captureException(error)
-            }
+            })
         }
     } //End For Loop
     var resp = {
@@ -396,9 +398,10 @@ async function handle_sync(body, token) {
                 }
             }
             return resp
-        }), function(error) {
-            SENTRY_CLI.captureException(error)
-        }
+        })
+    })
+    .catch( (error) => {
+        SENTRY_CLI.captureException(error)
     })
 }
 
@@ -407,7 +410,6 @@ async function handle_sync(body, token) {
  * Lambda Function Handler that is invoked by calls to Smart Home App
  * @param {object} event : Contains invocation data.
  * @param {object} context : Contains AWS lambda runtime information.
- * @param {object} callback : Contains AWS lambda runtime information.
  */
 async function fulfillment(event, context) {
     console.log(event)
@@ -440,9 +442,7 @@ async function fulfillment(event, context) {
         return response
     }
     catch(error){
-        if (SENTRY_CLI) {
-            SENTRY_CLI.captureException(error)
-        }
+        SENTRY_CLI.captureException(error)
         return error
     }
 }
