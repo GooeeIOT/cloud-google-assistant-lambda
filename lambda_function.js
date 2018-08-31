@@ -209,7 +209,7 @@ async function handle_execute(body, token) {
             case 'brightness':
                 req.type = 'dim'
                 req.value = {
-                    'transition_time': 2,
+                    'transition_time': 1,
                     'level': value
                 }
                 break
