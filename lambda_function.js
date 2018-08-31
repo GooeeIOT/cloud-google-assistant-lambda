@@ -148,7 +148,7 @@ function combine_commands(action, value, successfulDevices, failedDevices) {
         case 'brightness':
             if (successfulDevices) {
                 var cmd = {
-                    'ids': [new Set(successfulDevices)],
+                    'ids': successfulDevices,
                     'status': 'SUCCESS',
                     'states': {
                         'brightness': value
@@ -158,7 +158,7 @@ function combine_commands(action, value, successfulDevices, failedDevices) {
             }
             if (failedDevices) {
                 var cmd = {
-                    'ids': [new Set(failedDevices)],
+                    'ids': failedDevices,
                     'status': 'ERROR',
                 }
                 payloadCommands.push(cmd)
@@ -209,7 +209,7 @@ async function handle_execute(body, token) {
             case 'brightness':
                 req.type = 'dim'
                 req.value = {
-                    'transition_time': 1,
+                    'transition_time': 2,
                     'level': value
                 }
                 break
