@@ -367,7 +367,7 @@ async function handle_query(body, token) {
  * }
  */
 async function handle_sync(body, token) {
-    return await get_request('/devices/?_include=name,id,meta&type__in=wim,bulb', token)
+    return await get_request('/devices/?_include=name,id,meta&type__in=wim,bulb&limit=100', token) //FIXME: remove limit=100 hack
     .then( async function (resp) {
         let syncedDevices = []
         for (let i=0; i < resp.length; i++) {
@@ -381,7 +381,7 @@ async function handle_sync(body, token) {
         return syncedDevices
     })
     .then( async function (syncedDevices) {
-        return await get_request('/spaces/?_include=id,name', token)
+        return await get_request('/spaces/?_include=id,name&limit=100', token)
         .then( async function (resp) {
             var syncedSpaces = []
             for (var i=0; i < resp.length; i++) {
