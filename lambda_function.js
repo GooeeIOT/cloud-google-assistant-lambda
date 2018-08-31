@@ -375,13 +375,15 @@ async function handle_sync(body, token) {
             device_tmpl.id = resp[i].id
             device_tmpl.name.name = resp[i].name
             online = await resp[i].meta.find(x => {return x.name === 'is_online'})
-            device_tmpl.customData.online = online.value
-            syncedDevices.push(device_tmpl)
+            if (online) { 
+                device_tmpl.customData.online = online.value 
+                syncedDevices.push(device_tmpl)
+            }
         }
         return syncedDevices
     })
     .then( async function (syncedDevices) {
-        return await get_request('/spaces/?_include=id,name&limit=100', token)
+        return await get_request('/spaces/?_include=id,name', token)
         .then( async function (resp) {
             var syncedSpaces = []
             for (var i=0; i < resp.length; i++) {
@@ -401,7 +403,9 @@ async function handle_sync(body, token) {
         })
     })
     .catch( (error) => {
+        console.log(error)
         SENTRY_CLI.captureException(error)
+        return error
     })
 }
 
