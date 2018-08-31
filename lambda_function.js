@@ -50,8 +50,8 @@ const SPACE_TEMPLATE = {
 	],
 	"name": {
 		"name": "__REPLACE__"
-	},
-	"willReportState": false,
+    },
+    "willReportState": false,
 	"customData": {
 		"type": "space" 
 	}
@@ -65,7 +65,7 @@ const DEVICE_TEMPLATE = {
 	],
 	"name": {
 		"name": "__REPLACE__"
-	},
+    },
     "willReportState": false,
 	"deviceInfo": {
 		"manufacturer": "Gooee",
@@ -412,7 +412,6 @@ async function handle_sync(body, token) {
  * @param {object} context : Contains AWS lambda runtime information.
  */
 async function fulfillment(event, context) {
-    console.log(event)
     try {
         let body = event['body-json']
         let headers = event.params.header
