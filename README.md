@@ -5,7 +5,7 @@ A Google Assistant integration that uses Gooee's API for lighting control.
 * NodeJS 8.10 or higher
 * AWS account
 * Google Cloud Account
-* OAuth2 client ID and secret obtained by emailing cloud-backend@gooee.com
+* OAuth2 client ID and secret obtained by emailing cloud-backend@gooee.com. You will need new OAuth2 credentials even if you obtained OAuth credentials for Gooee Alexa.
 
 ### Dev Requirements
 This is meant to be ran in an AWS Lambda environment, but to run tests locally: 
