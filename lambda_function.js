@@ -89,8 +89,25 @@ function get_request(endpoint, token) {
         json: true,
         auth: { bearer: token }
     }
-    return rp.get(options)
+    let resp = rp.get(options)
+
+    // Paginate and provide additional response list data.
+    if (resp.headers.next){
+        let data = []
+        while (resp.headers.next) {
+            options['uri'] = resp.headers.next
+            resp = rp.get(options)
+            data = data.concat(resp)
+        }
+        console.log('Paginated data.')
+        return data
+    // Provide the response as-is.
+    } else {
+        console.log('Data not paginated.')
+        return resp
+    }
 }
+
 function post_request(endpoint, req, token) {
     let options = {
         uri: 'https://' + API_URL + endpoint,
@@ -367,7 +384,7 @@ async function handle_query(body, token) {
  * }
  */
 async function handle_sync(body, token) {
-    return await get_request('/devices/?_include=name,id,meta&type__in=wim,bulb&limit=100', token) //FIXME: remove limit=100 hack
+    return await get_request('/devices/?_include=name,id,meta&type__in=wim,bulb', token)
     .then( async function (resp) {
         let syncedDevices = []
         for (let i=0; i < resp.length; i++) {
