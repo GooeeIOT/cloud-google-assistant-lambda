@@ -17,6 +17,7 @@
 const {smarthome} = require('actions-on-google')
 const rp = require('request-promise')
 var raven = require('raven')
+var parse = require('parse-link-header');
 
 //Globals
 var API_URL = process.env.API_URL
@@ -83,29 +84,28 @@ const DEVICE_TEMPLATE = {
  * Create default GET and POST requests to Gooee Cloud API
  * @param {string} token : Bearer token
  */
-function get_request(endpoint, token) {
+async function get_request(endpoint, token, is_next=false) {
     let options = {
-        uri: 'https://' + API_URL + endpoint,
+        method: 'GET',
+        uri: is_next ? endpoint : 'https://' + API_URL + endpoint,
         json: true,
-        auth: { bearer: token }
+        auth: { bearer: token },
+        resolveWithFullResponse: true
     }
-    let resp = rp.get(options)
 
-    // Paginate and provide additional response list data.
-    if (resp.headers.next){
-        let data = []
-        while (resp.headers.next) {
-            options['uri'] = resp.headers.next
-            resp = rp.get(options)
-            data = data.concat(resp)
+    return await rp(options).then(async function (r) {
+        // Provide the response body of this page and the next.
+        var links = r.headers.link ? parse(r.headers.link) : null
+        if (links && links.next){
+            return [].concat(r.body, await get_request(links.next.url, token, true))
+        // Provide the response body.
+        } else {
+            return r.body
         }
-        console.log('Paginated data.')
-        return data
-    // Provide the response as-is.
-    } else {
-        console.log('Data not paginated.')
-        return resp
-    }
+    }).catch( (error) => {
+        console.log(error)
+        throw error
+    })
 }
 
 function post_request(endpoint, req, token) {
@@ -384,7 +384,7 @@ async function handle_query(body, token) {
  * }
  */
 async function handle_sync(body, token) {
-    return await get_request('/devices/?_include=name,id,meta&type__in=wim,bulb', token)
+    return await get_request('/devices/?_include=name,id,meta&type__in=wim,bulb&limit=100', token)
     .then( async function (resp) {
         let syncedDevices = []
         for (let i=0; i < resp.length; i++) {
@@ -400,7 +400,7 @@ async function handle_sync(body, token) {
         return syncedDevices
     })
     .then( async function (syncedDevices) {
-        return await get_request('/spaces/?_include=id,name', token)
+        return await get_request('/spaces/?_include=id,name&limit=100', token)
         .then( async function (resp) {
             var syncedSpaces = []
             for (var i=0; i < resp.length; i++) {
@@ -462,6 +462,7 @@ async function fulfillment(event, context) {
         return response
     }
     catch(error){
+        console.log(error)
         SENTRY_CLI.captureException(error)
         return error
     }
