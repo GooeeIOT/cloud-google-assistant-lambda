@@ -32,6 +32,10 @@ Below are steps to deploy this Lambda function as a Gooee Smart Home Skill:
     * Build Action should provide you a field to add fulfillment URL. Go back to your lambda function and select the API Gateway trigger. A new section
         should show the API Gateway **google-assistant-lambda** along with the API endpoint. Copy that endpoint and paste it as the fulfillment URL in the
         Google actions console. Save.
-8. In your terminal, in the directory your code is in run command: `zip -r ../<NAME_OF_YOUR_ZIP_FILE>.zip *`
+8. In your terminal, in the directory your code is in run commands:
+    * `npm install --package-lock`
+    * `zip -r ../<NAME_OF_FILE>.zip *`
+    * `aws s3 cp ../<NAME_OF_FILE>.zip s3://google-assistant-control-development --profile default`
+    * `aws lambda update-function-code --function-name google-assistant-integration --s3-bucket google-assistant-control-development --s3-key <NAME_OF_FILE>.zip --publish --profile default`
 9. Go back to your AWS Lambda function and in the code section and select "Upload a .ZIP file" from the "Code entry type" drop-down. Provide the zip file
     as the upload, then Save.
