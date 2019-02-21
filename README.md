@@ -17,8 +17,9 @@ Below are steps to deploy this Lambda function as a Gooee Smart Home Skill:
 
 1. Create a Nodejs 8.10 AWS Lambda function "from scratch" using your AWS account in the region you plan to distribute the Google Assistant action.
 2. In the Designer section, select "API Gateway" as a trigger. 
-3. A new section "Configure triggers" should prompt you to provide pick an existing API or create a new one. If you are a Gooee User scroll through the dropdown 
-    and select **google-assistant-lambda**. 
+3. A new section "Configure triggers" should prompt you to provide pick an existing API or create a new one. 
+
+    * If you are a Gooee User scroll through the dropdown and select **google-assistant-lambda**. 
     * If you are a Non-Gooee User:
         1. Go to https://console.aws.amazon.com/apigateway/home
         2. Click the "Create API" button
