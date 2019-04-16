@@ -59,9 +59,16 @@ Below are steps to deploy this Lambda function as a Gooee Smart Home Skill:
     * Setup account linking:
         1. Select "No, I only want to allow account creation on my website".
         2. Select "OAuth" linking type and "Authorization code" grant type.
-        3. Use the clientID and clientSecret from requirements section, and setup linking account
-        4. Save.
-    * Build Action should provide you a field to add fulfillment URL. Go back to your lambda function and select the API Gateway trigger. A new section
+        3. Use the clientID and clientSecret from requirements section **if you do not have these setup yet, contact cloud-backend@gooee.com with the name of your application and redirect uri**
+            - For Google Assistant *Redirect URI* is https://oauth-redirect.googleusercontent.com/r/YOUR_PROJECT_ID, **YOUR_PROJECT_ID** can be found in the Actions on Google Settings page (click the cog wheel).
+        4. The **Authorization URL** is https://api.gooee.io/auth/o/authorize
+        5. The **Token URL** is https://api.gooee.io/auth/o/token/
+        6. In the **Configure Your Client** section add these scopes (separately)
+            - device:read
+            - space:read
+            - action:write
+        5. Save.
+    * Build Action should provide you with a field to add fulfillment URL. Go back to your lambda function and select the API Gateway trigger. A new section
         should show the API Gateway along with the API endpoint. Copy that endpoint and paste it as the fulfillment URL in the
         Google actions console. Save.
 8. If you do not already have an S3 bucket for the google-assistant app, create one.
@@ -73,3 +80,4 @@ Below are steps to deploy this Lambda function as a Gooee Smart Home Skill:
     * Go back to your AWS Lambda function and in the code section and select "Upload a file from Amazon S3" from the "Code entry type" drop-down. Provide the S3 URL as the upload (this can be found in the **Object URL** section of the bucket object -- make sure you're selecting the object last modified).
     * Alternatively, you can go to the Lambda console and upload the Zip file from your local system instead of S3.
 10. In the "Handler" type in `lambda_function.fulfillment` or if you've changed the function name it's the module-name.export value in your function. Save.
+11. You can test this action via the Home section in the Google Assistant app on your phone after you hit "TEST" in the Build Action section of the Actions on Google console.
