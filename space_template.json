@@ -1,0 +1,16 @@
+{
+    "id": "__REPLACE__",
+    "type": "action.devices.types.SWITCH",
+    "traits": ["action.devices.traits.OnOff"],
+    "name": {
+        "name": "__REPLACE__"
+    },
+    "willReportState": true,
+    "deviceInfo": {
+        "manufacturer": "Gooee"
+    },
+    "customData": {
+        "type": "space",
+        "online": true
+    }
+}

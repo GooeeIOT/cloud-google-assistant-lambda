@@ -1,5 +1,5 @@
 {
-  "name": "google-assistant-test",
+  "name": "google-assistant-dev",
   "version": "1.0.0",
   "description": "",
   "main": "lambda_function.js",
@@ -7,19 +7,25 @@
     "test": "mocha"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Gooee",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GooeeIOT/cloud-google-assistant-lambda.git"
+  },
+  "license": "Apache-2.0",
   "dependencies": {
-    "actions-on-google": "^2.3.0",
-    "lodash": "^4.17.10",
-    "raven": "^2.6.3",
+    "actions-on-google": "^2.12.0",
+    "aws-sdk": "^2.516.0",
+    "lodash": "^4.17.15",
+    "parse-link-header": "1.0.1",
     "request": "^2.88.0",
-    "request-promise": "^4.2.2",
-    "parse-link-header": "1.0.1"
+    "request-promise": "^4.2.4",
+    "winston": "^3.2.1",
+    "winston-cloudwatch": "^2.0.7"
   },
   "devDependencies": {
-    "chai": "^4.1.2",
+    "chai": "^4.2.0",
     "mocha": "^5.2.0",
-    "sinon": "^6.1.5"
+    "sinon": "^6.3.5"
   }
 }

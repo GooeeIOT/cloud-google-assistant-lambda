@@ -1,0 +1,16 @@
+{
+    "id": "__REPLACE__",
+    "type": "action.devices.types.LIGHT",
+    "traits": ["action.devices.traits.OnOff", "action.devices.traits.Brightness"],
+    "name": {
+        "name": "__REPLACE__"
+    },
+    "willReportState": true,
+    "deviceInfo": {
+        "manufacturer": "Gooee"
+    },
+    "customData": {
+        "type": "device",
+        "online": "__REPLACE__"
+    }
+}
