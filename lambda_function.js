@@ -1,5 +1,5 @@
 /**
- * Copyright 2019 Gooee, LLC
+ * Copyright 2020 Gooee, LLC
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,33 +19,37 @@ const lambda = new aws.Lambda();
 const parse = require("parse-link-header");
 const rp = require("request-promise");
 const { smarthome } = require("actions-on-google");
-var winston = require("winston"),
+const app = smarthome({
+        jwt: require("./smart-home-key.json"),
+    });
+const winston = require("winston"),
     WinstonCloudWatch = require("winston-cloudwatch");
 
 // Globals
-var API_URL = process.env.API_URL;
+const API_URL = process.env.API_URL;
 const SPACE_TEMPLATE = require("./space_template.json");
 const DEVICE_TEMPLATE = require("./device_template.json");
-var agentUserId;
-var successfulDevices = [];
-var failedDevices = [];
-var payloadCommands = [];
+const logger = new winston.createLogger();
+let agentUserId;
+let successfulDevices = [];
+let failedDevices = [];
+let payloadCommands = [];
 
-// Setup Homegraph and Smarthome
-let homegraph;
-try {
-    homegraph = require("./smart-home-key.json");
-} catch (e) {
-    console.warn("Service account key is not found. Report state will be unavailable.");
+/*
+ * Configure Winston Cloudwatch logger
+ */
+function configureCloudwatchLogger(context) {
+    logger.add(
+        new WinstonCloudWatch({
+            logGroupName: context.logGroupName,
+            logStreamName: context.logStreamName,
+            level: process.env.LOG_LEVEL,
+        }),
+    );
 }
 
-const app = smarthome({
-    jwt: homegraph,
-});
-
-
 /**
- * Updates agetUserId with customer ID from Gooee Cloud API /me endpoint
+ * Updates agentUserId with customer ID from Gooee Cloud API /me endpoint
  * @param {string} token : Bearer token
  */
 async function getUserAgent(token) {
@@ -55,7 +59,7 @@ async function getUserAgent(token) {
             return resp.customer;
         })
         .catch(function(error) {
-            console.error(error);
+            logger.error(error);
         });
 }
 
@@ -68,15 +72,16 @@ async function getStates(token) {
         .getRequest("/devices?type__in=wim,bulb&limit=100", token)
         .then(async function(resp) {
             let deviceStates = {};
+            let on, brightness;
             for (let i = 0; i < resp.length; i++) {
-                deviceId = resp[i].id;
+                let deviceId = resp[i].id;
                 for (let meta of resp[i].meta) {
                     switch (meta.name) {
                         case "onoff":
-                            var on = meta.value;
+                            on = meta.value;
                             break;
                         case "dim":
-                            var brightness = meta.value;
+                            brightness = meta.value;
                             break;
                     }
                 }
@@ -88,37 +93,36 @@ async function getStates(token) {
             return deviceStates;
         })
         .then(async function(deviceStates) {
-            spaceStates = await helpers
+            let spaceStates = await helpers
                 .getRequest("/spaces/?_include=id,name&limit=100", token)
                 .then(async function(resp) {
                     let states = {};
                     for (let i = 0; i < resp.length; i++) {
-                        one_on = await helpers
+                        let onoff = await helpers
                             .getRequest("/spaces/" + resp[i].id + "/device_states", token)
                             .then(async function(resp) {
-                                // Space is on if atleast one device is on
-                                one_on = false;
-                                for (device in resp["states"]) {
-                                    if (device.onoff == true) {
+                                // Space is on if at least one device is on
+                               let  one_on = false;
+                                for (let device in resp["states"]) {
+                                    if (device.onoff === true) {
                                         one_on = true;
                                     }
                                 }
                                 return one_on;
                             });
                         states[resp[i].id] = {
-                            on: one_on,
+                            on: onoff,
                         };
                     }
                     return states;
                 })
                 .catch(res => {
-                    winston.warn("Failed getting states for spaces: " + res);
+                    logger.warn("Failed getting states for spaces: " + res);
                 });
-            var states = Object.assign(deviceStates, spaceStates);
-            return states;
+            return Object.assign(deviceStates, spaceStates);
         })
         .catch(res => {
-            winston.warn("Failed getting states for devices: " + res);
+            logger.warn("Failed getting states for devices: " + res);
         });
 }
 
@@ -142,7 +146,7 @@ async function getRequest(endpoint, token, is_next = false) {
     return await rp(options)
         .then(async function(r) {
             // Provide the response body of this page and the next.
-            var links = r.headers.link ? parse(r.headers.link) : null;
+            const links = r.headers.link ? parse(r.headers.link) : null;
             if (links && links.next) {
                 return [].concat(r.body, await getRequest(links.next.url, token, true));
                 // Provide the response body.
@@ -151,7 +155,7 @@ async function getRequest(endpoint, token, is_next = false) {
             }
         })
         .catch(error => {
-            winston.error(error);
+            logger.error(error);
         });
 }
 
@@ -203,7 +207,7 @@ function combineCommands(action, value, successfulDevices, failedDevices) {
     switch (action) {
         case "on":
             if (successfulDevices) {
-                var cmd = {
+                const cmd = {
                     ids: successfulDevices,
                     status: "SUCCESS",
                     states: {
@@ -214,7 +218,7 @@ function combineCommands(action, value, successfulDevices, failedDevices) {
                 payloadCommands.push(cmd);
             }
             if (!Array.isArray(failedDevices) || failedDevices.length) {
-                var cmd = {
+                const cmd = {
                     ids: failedDevices,
                     status: "ERROR",
                 };
@@ -223,7 +227,7 @@ function combineCommands(action, value, successfulDevices, failedDevices) {
             break;
         case "brightness":
             if (successfulDevices) {
-                var cmd = {
+                const cmd = {
                     ids: successfulDevices,
                     status: "SUCCESS",
                     states: {
@@ -233,7 +237,7 @@ function combineCommands(action, value, successfulDevices, failedDevices) {
                 payloadCommands.push(cmd);
             }
             if (failedDevices) {
-                var cmd = {
+                const cmd = {
                     ids: failedDevices,
                     status: "ERROR",
                 };
@@ -246,13 +250,13 @@ function combineCommands(action, value, successfulDevices, failedDevices) {
 }
 
 /**
- * Helper function that invokes 
+ * Helper function that invokes
  * @param {object} _body : object containing requestId
  * @param {object} ctx: context of lambda function
  * @param {string} _token : Bearer token
  */
 async function _reportState(_body, ctx, _token) {
-    var params = {
+    let params = {
         FunctionName: ctx.functionName,
         InvocationType: "Event",
         LogType: "Tail",
@@ -264,9 +268,9 @@ async function _reportState(_body, ctx, _token) {
         }),
     };
     lambda.invoke(params, function(err, data) {
-        if (err) console.log(err, err.stack);
+        if (err) logger.error(err, err.stack);
         // an error occurred
-        else console.log(data); // successful response
+        else logger.debug(JSON.stringify(data)); // successful response
     });
 }
 
@@ -275,10 +279,10 @@ async function _reportState(_body, ctx, _token) {
 
 /**
  * Handles ReportState by directly calling reportState via the smarthome app.
- * @param {string} agentUserId : user ID that matches the Google Home User ID that was initially sent in the Sync response. 
+ * @param {string} agentUserId : user ID that matches the Google Home User ID that was initially sent in the Sync response.
  *                               This is the Gooee Customer ID.
  * @param {string} requestId : requestID that came from the original request
- * @param {strin} token : Bearer token for oauth
+ * @param {string} token : Bearer token for oauth
  * {
  * "requestId": "ff36a3cc-ec34-11e6-b1a0-64510650abcf",
  * "agentUserId": "1234",
@@ -298,7 +302,7 @@ async function _reportState(_body, ctx, _token) {
  *}
  */
 async function handleReportState(agentUserId, requestId, token) {
-    var request = {
+    let request = {
         requestId: requestId,
         agentUserId: agentUserId,
         payload: {
@@ -307,13 +311,14 @@ async function handleReportState(agentUserId, requestId, token) {
             },
         },
     };
+    logger.debug(JSON.stringify(request));
     // Call reportState via smarthome app
     app.reportState(request)
         .then(() => {
-            winston.debug("Report State Successful.");
+            logger.debug("Report State Successful.");
         })
-        .catch(err => {
-            winston.error(err);
+        .catch(error => {
+            logger.error(error.stack);
         });
     return request;
 }
@@ -412,14 +417,13 @@ async function handleExecute(body, token) {
         }
         // Record successful and failed actions
         await combineCommands(action, value, successfulDevices, failedDevices);
-        var resp = {
+        return {
             requestId: body.requestId,
             payload: {
                 agentUserId: agentUserId,
                 commands: payloadCommands,
             },
         };
-        return resp;
     }
 }
 
@@ -463,11 +467,11 @@ async function handleExecute(body, token) {
 async function handleQuery(body, token) {
     let devices = body.inputs[0].payload.devices;
     let queryDevices = []; // array of device ids to query
-    for (var i = 0; i < devices.length; i++) {
+    for (let i = 0; i < devices.length; i++) {
         queryDevices.push(devices[i]);
     }
 
-    var queriedDevices = [];
+    let queriedDevices = [];
     for (let query of queryDevices) {
         if (query.customData.type === "device") {
             await helpers
@@ -496,6 +500,7 @@ async function handleQuery(body, token) {
                     await combineDevices(queriedDevices, device);
                 })
                 .catch(error => {
+                    logger.error(error);
                     throw new Error(error);
                 });
         } else {
@@ -518,13 +523,12 @@ async function handleQuery(body, token) {
                 });
         }
     }
-    var resp = {
+    return {
         requestId: body.requestId,
         payload: {
             devices: Object.assign({}, ...queriedDevices),
         },
     };
-    return resp;
 }
 
 /**
@@ -568,7 +572,7 @@ async function handleSync(body, token) {
                 let device_tmpl = await JSON.parse(JSON.stringify(DEVICE_TEMPLATE));
                 device_tmpl.id = resp[i].id;
                 device_tmpl.name.name = resp[i].name;
-                online = await resp[i].meta.find(x => {
+                const online = await resp[i].meta.find(x => {
                     return x.name === "is_online";
                 });
                 if (online) {
@@ -582,8 +586,8 @@ async function handleSync(body, token) {
             return await helpers
                 .getRequest("/spaces?_include=id,name&limit=100", token)
                 .then(async function(resp) {
-                    var syncedSpaces = [];
-                    for (var i = 0; i < resp.length; i++) {
+                    let syncedSpaces = [];
+                    for (let i = 0; i < resp.length; i++) {
                         // For each space in response create space object from SPACE_TEMPLATE
                         let space_tmpl = await JSON.parse(JSON.stringify(SPACE_TEMPLATE));
                         space_tmpl.id = resp[i].id;
@@ -592,14 +596,13 @@ async function handleSync(body, token) {
                     }
                     // Combine the space and device objects to be sent as one payload
                     let devices = syncedDevices.concat(syncedSpaces);
-                    var resp = {
+                    return {
                         requestId: body.requestId,
                         payload: {
                             agentUserId: agentUserId,
                             devices: devices,
                         },
                     };
-                    return resp;
                 });
         });
 }
@@ -610,15 +613,15 @@ async function handleSync(body, token) {
  * Lambda Function Handler that is invoked by calls to Smart Home App
  * @param {object} event : Contains invocation data.
  * @param {object} context : Contains AWS lambda runtime information.
- * 
+ *
  * Google Assistant sends Smart Home intents (SYNC, QUERY, EXECUTE, DISCONNECT)
- * which are simple messaging objects that describe what smart home Action to 
- * perform such as turning on a light. All of the smart home intents are contained 
+ * which are simple messaging objects that describe what smart home Action to
+ * perform such as turning on a light. All of the smart home intents are contained
  * in the `action.devices` namespace in the event body.
  * The fulfillment function processes the event and handles each intent. After
- * each intent (excluding actions.devices.REPORT_STATE) is handled, _reportState 
+ * each intent (excluding actions.devices.REPORT_STATE) is handled, _reportState
  * is called.
- * 
+ *
  * @returns {object} res:
  * {
       isBase64Encoded: false,
@@ -629,73 +632,65 @@ async function handleSync(body, token) {
  */
 async function fulfillment(event, context) {
     // Configure Winston logger for CloudWatch logging
-    winston.add(
-        new WinstonCloudWatch({
-            logGroupName: context.logGroupName,
-            logStreamName: context.logStreamName,
-            level: process.env.LOG_LEVEL,
-        }),
-    );
-
+    configureCloudwatchLogger(context);
     try {
+        let body;
+        let token;
+        let intent;
         if ("body" in event) {
             // Process JSON for events coming from API Gateway
-            var body = JSON.parse(event.body);
-            var token = event.headers.Authorization.split(" ")[1]; // Bearer token for oauth
-            var intent = body["inputs"][0]["intent"];
-
+            body = JSON.parse(event.body);
+            token = event.headers.Authorization.split(" ")[1]; // Bearer token for oauth
+            intent = body["inputs"][0]["intent"];
             await getUserAgent(token);
             if (agentUserId == null) {
-                winston.error("Error getting User Agent");
+                logger.error("Error getting User Agent");
             }
         } else {
             // Event triggered by Lambda (specifically for ReportState)
-            var token = event.token;
+            token = event.token;
             agentUserId = event.agentUserId;
-            var requestId = event.requestId;
-            var intent = event.intent;
+            intent = event.intent;
         }
 
-        var response = {};
+        let response = {};
         switch (intent) {
             case "action.devices.SYNC":
-                winston.debug("SYNCING...");
+                logger.debug("SYNCING...");
                 response = await handleSync(body, token);
                 await _reportState(body, context, token);
                 break;
             case "action.devices.QUERY":
-                winston.debug("QUERYING...");
+                logger.debug("QUERYING...");
                 response = await handleQuery(body, token);
                 await _reportState(body, context, token);
                 break;
             case "action.devices.EXECUTE":
-                winston.debug("EXECUTING...");
+                logger.debug("EXECUTING...");
                 response = await handleExecute(body, token);
                 await _reportState(body, context, token);
                 break;
             case "action.devices.DISCONNECT":
-                winston.debug("DISCONNECTING...");
+                logger.debug("DISCONNECTING...");
                 response = {};
                 break;
             case "actions.devices.REPORT_STATE":
-                winston.debug("REPORTING STATE...");
-                response = await handleReportState(agentUserId, requestId, token);
+                logger.debug("REPORTING STATE...");
+                response = await handleReportState(agentUserId, event.requestId, token);
                 break;
             default:
-                throw event;
+                logger.error("Intent in event not found");
         }
 
-        winston.debug(JSON.stringify(response));
-        res = {
+        logger.debug('Response: ' + JSON.stringify(response));
+        return {
             isBase64Encoded: false,
             statusCode: 200,
             body: JSON.stringify(response),
         };
 
-        return res;
     } catch (error) {
-        winston.error(error);
-        throw new Error(error.stack);
+        logger.error(error.stack);
     }
 }
 

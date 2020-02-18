@@ -2,7 +2,7 @@
 A Google Assistant integration that uses Gooee's API for lighting control.
 
 ## Requirements
-* NodeJS 8.10 or higher
+* NodeJS 12.X
 * AWS account
 * Google Cloud Account
 * OAuth2 client ID and secret obtained by emailing cloud-backend@gooee.com. You will need new OAuth2 credentials even if you obtained OAuth credentials for Gooee Alexa.
@@ -15,7 +15,7 @@ This is meant to be ran in an AWS Lambda environment, but to run tests locally:
 ## Usage
 Below are steps to deploy this Lambda function as a Gooee Smart Home Skill:
 
-1. Create a Nodejs 8.10 AWS Lambda function "from scratch" using your AWS account in the region you plan to distribute the Google Assistant action. You will need an execution role for this lambda -- you can create one or use an already existing one. Your Lambda Execution Role should have the following policies: AWSLambdaRole, AWSLambdaBasicExecutionRole, and CloudWatchLogsReadOnlyAccess.
+1. Create a Nodejs 12 AWS Lambda function "from scratch" using your AWS account in the region you plan to distribute the Google Assistant action. You will need an execution role for this lambda -- you can create one or use an already existing one. Your Lambda Execution Role should have the following policies: AWSLambdaRole, AWSLambdaBasicExecutionRole, and CloudWatchLogsReadOnlyAccess.
 2. In the Designer section, select "API Gateway" as a trigger. 
 3. A new section "Configure triggers" should prompt you to provide pick an existing API or create a new one. 
 
@@ -71,3 +71,15 @@ Instructions for enabling Request Sync can be found [here](https://developers.go
 
 ### Configuring for Report State
 Report State is an important feature which lets the smart home Action proactively report the latest status of the user’s device back to Google’s HomeGraph rather than waiting for a QUERY intent. Instructions for enabling Report State can be found [here](https://developers.google.com/actions/smarthome/develop/report-state). Once you have created you service account key, copy/paste this key into the **smart-home-key.json** file. Follow step #9 to update your lambda function with the service account key.
+
+## Updating your Lambda
+Below are the steps to follow whenever your lambda needs an update.
+
+1. `git checkout master` branch.
+2. `git pull` any new changes.
+3. `npm install --package-lock`
+4. `zip -r ../<NAME_OF_FILE>.zip *`
+5. `aws s3 cp ../<NAME_OF_FILE>.zip s3://<BUCKET_NAME> --profile default`
+6. `aws lambda update-function-code --function-name <LAMBDA_FUNC_NAME> --s3-bucket <BUCKET_NAME> --s3-key <NAME_OF_FILE>.zip --publish --profile default`
+ 
+ Alternatively, after copying your zip file to s3 you can go back to your AWS Lambda function and in the code section select "Upload a file from Amazon S3" from the "Code entry type" drop-down. Provide the S3 URL as the upload (this can be found in the **Object URL** section of the bucket object -- make sure you're selecting the object last modified). Or you can go to the Lambda console and upload the Zip file from your local system instead of S3.
