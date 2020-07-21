@@ -405,7 +405,7 @@ async function handleExecute(body, token) {
                 payload["target_type"] = "space";
             }
             payload["target_id"] = device.id;
-            payload["origin"] = "google";
+            payload["origin"] = "google_assistant";
 
             await helpers
                 .postRequest("/actions", payload, token)

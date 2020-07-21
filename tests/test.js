@@ -46,7 +46,7 @@ describe('Handler tests should pass successfully', () => {
                 "target_type": "space",
                 "target_id": "192837465",
                 "value": {"transition_time": 1},
-                "origin": "google"
+                "origin": "google_assistant"
             };
             expect(rpStub.getCalls()[0].args[0]).to.deep.equal("/actions");
             expect(rpStub.getCalls()[0].args[1]).to.deep.equal(expectedSpaceAction);
