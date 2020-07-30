@@ -40,6 +40,16 @@ describe('Handler tests should pass successfully', () => {
         it('should return successful executions', async () => {
             var resp = await lambda.handleExecute(request.onExecute, null)
             resp.payload.agentUserId = agentUserId
+            let expectedSpaceAction = {
+                "name": 'Google Action Request',
+                "type": "off",
+                "target_type": "space",
+                "target_id": "192837465",
+                "value": {"transition_time": 1},
+                "origin": "google_assistant"
+            };
+            expect(rpStub.getCalls()[0].args[0]).to.deep.equal("/actions");
+            expect(rpStub.getCalls()[0].args[1]).to.deep.equal(expectedSpaceAction);
             expect(resp).to.deep.equal(response.onExecute)
         })
     })
