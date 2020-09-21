@@ -16,6 +16,7 @@
   "dependencies": {
     "actions-on-google": "^2.12.0",
     "aws-sdk": "^2.516.0",
+    "google-p12-pem": "3.0.3",
     "lodash": "^4.17.15",
     "parse-link-header": "1.0.1",
     "request": "^2.88.0",
